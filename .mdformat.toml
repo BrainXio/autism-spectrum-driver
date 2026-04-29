@@ -1,0 +1,7 @@
+# .mdformat.toml — Markdown formatting rules
+#
+# Part of BrainXio/.github/defaults/
+
+wrap = 100
+number = true
+end_of_line = "lf"
