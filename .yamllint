@@ -1,0 +1,11 @@
+extends: default
+
+rules:
+  line-length:
+    max: 100
+  indentation:
+    spaces: 2
+  document-start:
+    present: false
+  truthy:
+    check-keys: false

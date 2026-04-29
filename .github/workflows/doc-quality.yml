@@ -1,0 +1,23 @@
+name: Doc Quality
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  doc-lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v8
+
+      - run: uv pip install mdformat mdformat-gfm --system
+
+      - run: mdformat --check docs/ *.md
+
+      - run: uv pip install yamllint --system
+
+      - run: yamllint .

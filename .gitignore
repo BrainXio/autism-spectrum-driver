@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# ASD runtime
+USER/*
+!USER/.gitignore
+
+# AI tool artifacts (never committed)
+CLAUDE.md
+PLAN.md
+.claude/
+.cursorrules
+.cursor/
+prompt.txt
+
+# Lint caches
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
