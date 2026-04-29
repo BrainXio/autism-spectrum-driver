@@ -2,9 +2,8 @@
 
 ## System Role
 
-ASD is the **systematizing memory layer** of the BrainXio stack. It ingests raw
-information (daily logs, notes, references) and produces clean, versioned,
-interconnected knowledge artifacts.
+ASD is the **systematizing memory layer** of the BrainXio stack. It ingests raw information (daily
+logs, notes, references) and produces clean, versioned, interconnected knowledge artifacts.
 
 ## Package Boundaries
 
