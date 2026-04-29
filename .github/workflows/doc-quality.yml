@@ -12,12 +12,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v8
+      - uses: astral-sh/setup-uv@v7
 
-      - run: uv pip install mdformat mdformat-gfm --system
+      - run: uv sync
 
-      - run: mdformat --check docs/ *.md
+      - run: uv run mdformat --check docs/ *.md
 
-      - run: uv pip install yamllint --system
+      - run: uv run yamllint .
 
-      - run: yamllint .
+  link-check:
+    name: Link Check (Informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: docs/ *.md
+          fail: false
