@@ -1,0 +1,24 @@
+{
+  "repository": "autism-spectrum-driver",
+  "package": "asd",
+  "role": "Systematizing memory — knowledge compilation layer",
+  "last_updated": "2026-04-30",
+  "status": "all-done",
+  "completed": [
+    "MCP server with 10 tools (set_mode, get_mode, ingest, compile, query, validate, status, scan_prototypes, get_shortlist, get_rules)",
+    "KB compiler (ingest raw Markdown → clean YAML-frontmatter artifacts)",
+    "Storage layer (artifacts, TF-IDF index)",
+    "Validation layer (6 structural checks, cross-references)",
+    "5 modes with distinct quality thresholds (developer, research, review, ops, personal)",
+    ".mcp.json aligned across all 5 repos",
+    "Repo renamed from BrainXio/ASD → BrainXio/autism-spectrum-driver",
+    "asd-1: Prototype scanner with domain, maturity, tech_stack, priority extraction",
+    "asd-2: KB versioning with source_version, ingest_date, historical_context, version-filtered query",
+    "asd-3: Cerebro integration via asd_scan_prototypes and asd_get_shortlist MCP tools",
+    "asd-4: KB quality gates with configurable rejection/warning thresholds",
+    "asd-5: Expanded modes — developer, research, review, ops, personal",
+    "asd-6: asd_get_rules MCP tool following cross-package {package}_get_rules pattern",
+    "asd-7: README.md updated with all 10 tools, versioned artifact format, and parallel framing"
+  ],
+  "pending": []
+}

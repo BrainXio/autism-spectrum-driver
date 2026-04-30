@@ -12,12 +12,76 @@ from typing import Any
 
 from asd.compiler.compile import compile_logs
 from asd.compiler.ingest import ingest, ingest_status
+from asd.scanner import load_shortlist, save_shortlist, scan_prototypes
 from asd.storage.index import build_index, is_index_stale, load_index, save_index, search
 from asd.validation.consistency import validate
 
 # ── Mode state ─────────────────────────────────────────────────────────────────
 
 _current_mode: str = "developer"
+
+# Mode-specific quality threshold presets
+_MODE_DEFAULTS: dict[str, dict[str, Any]] = {
+    "developer": {
+        "min_words": 50,
+        "min_words_reject": 10,
+        "min_frontmatter_fields": 2,
+        "required_frontmatter": ["title"],
+        "min_quality_score": 0.2,
+        "reject_quality_score": 0.0,
+        "check_broken_links": True,
+        "max_broken_links": 5,
+    },
+    "research": {
+        "min_words": 30,
+        "min_words_reject": 5,
+        "min_frontmatter_fields": 1,
+        "required_frontmatter": ["title"],
+        "min_quality_score": 0.1,
+        "reject_quality_score": 0.0,
+        "check_broken_links": False,
+        "max_broken_links": 10,
+    },
+    "review": {
+        "min_words": 100,
+        "min_words_reject": 20,
+        "min_frontmatter_fields": 4,
+        "required_frontmatter": ["title", "type", "tags"],
+        "min_quality_score": 0.4,
+        "reject_quality_score": 0.1,
+        "check_broken_links": True,
+        "max_broken_links": 2,
+    },
+    "ops": {
+        "min_words": 30,
+        "min_words_reject": 5,
+        "min_frontmatter_fields": 2,
+        "required_frontmatter": ["title"],
+        "min_quality_score": 0.2,
+        "reject_quality_score": 0.0,
+        "check_broken_links": True,
+        "max_broken_links": 5,
+    },
+    "personal": {
+        "min_words": 10,
+        "min_words_reject": 1,
+        "min_frontmatter_fields": 1,
+        "required_frontmatter": ["title"],
+        "min_quality_score": 0.0,
+        "reject_quality_score": 0.0,
+        "check_broken_links": False,
+        "max_broken_links": 999,
+    },
+}
+
+# Mode descriptions for documentation
+_MODE_DESCRIPTIONS: dict[str, str] = {
+    "developer": "Standard thresholds for active development — balanced quality gates",
+    "research": "Lenient gates for exploratory research notes and early prototypes",
+    "review": "Strict gates for articles undergoing formal review before publication",
+    "ops": "Focused on operational content — runbooks, incident reports, deployment notes",
+    "personal": "Permissive gates for personal journal entries and private notes",
+}
 
 
 def _resolve_kb_dir(project_root: Path) -> Path:
@@ -38,13 +102,18 @@ def _resolve_logs_dir(project_root: Path) -> Path:
     return project_root / "USER" / "logs" / "daily"
 
 
+def get_mode_thresholds() -> dict[str, Any]:
+    """Return the quality thresholds for the currently active mode."""
+    return dict(_MODE_DEFAULTS.get(_current_mode, _MODE_DEFAULTS["developer"]))
+
+
 # ── Mode handlers ──────────────────────────────────────────────────────────────
 
 
 def handle_set_mode(mode: str) -> dict[str, Any]:
-    """Switch the active mode. Phase 1 only accepts 'developer'."""
+    """Switch the active mode."""
     global _current_mode
-    valid_modes = {"developer"}
+    valid_modes = set(_MODE_DEFAULTS.keys())
     if mode not in valid_modes:
         return {
             "ok": False,
@@ -52,12 +121,23 @@ def handle_set_mode(mode: str) -> dict[str, Any]:
         }
     prev = _current_mode
     _current_mode = mode
-    return {"ok": True, "previous": prev, "current": mode}
+    return {
+        "ok": True,
+        "previous": prev,
+        "current": mode,
+        "description": _MODE_DESCRIPTIONS.get(mode, ""),
+        "thresholds": _MODE_DEFAULTS[mode],
+    }
 
 
 def handle_get_mode() -> dict[str, Any]:
     """Return the currently active mode."""
-    return {"mode": _current_mode}
+    return {
+        "mode": _current_mode,
+        "description": _MODE_DESCRIPTIONS.get(_current_mode, ""),
+        "thresholds": get_mode_thresholds(),
+        "available_modes": sorted(_MODE_DEFAULTS.keys()),
+    }
 
 
 # ── Ingestion ──────────────────────────────────────────────────────────────────
@@ -68,6 +148,7 @@ def handle_ingest(
     source: str = "USER/kb",
     force_all: bool = False,
     dry_run: bool = False,
+    quality_thresholds: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Ingest raw markdown files into cleaned KB artifacts.
 
@@ -76,6 +157,7 @@ def handle_ingest(
         source: Source directory relative to project root containing .md files.
         force_all: Re-ingest all files regardless of change detection.
         dry_run: Report what would be done without making changes.
+        quality_thresholds: Optional dict of quality gate thresholds.
     """
     root = Path(project_root)
     kb_dir = _resolve_kb_dir(root)
@@ -86,7 +168,15 @@ def handle_ingest(
             "error": f"Knowledge base directory not found: {kb_dir}",
         }
 
-    result = ingest(kb_dir=kb_dir, force_all=force_all, dry_run=dry_run)
+    # Apply mode-specific defaults when no custom thresholds provided
+    thresholds = quality_thresholds if quality_thresholds is not None else get_mode_thresholds()
+
+    result = ingest(
+        kb_dir=kb_dir,
+        force_all=force_all,
+        dry_run=dry_run,
+        quality_thresholds=thresholds,
+    )
 
     return {
         "ok": True,
@@ -96,6 +186,8 @@ def handle_ingest(
         "skipped": result.skipped,
         "deleted": result.deleted,
         "errors": result.errors,
+        "rejected": result.rejected,
+        "warned": result.warned,
         "details": result.details,
     }
 
@@ -153,6 +245,8 @@ def handle_query(
     project_root: str,
     question: str,
     top_k: int = 5,
+    min_version: int | None = None,
+    max_version: int | None = None,
 ) -> dict[str, Any]:
     """Search the knowledge base using TF-IDF relevance scoring.
 
@@ -160,6 +254,8 @@ def handle_query(
         project_root: Root directory of the project (usually CWD).
         question: Search query describing what to find.
         top_k: Maximum number of results to return.
+        min_version: Optional minimum source_version filter.
+        max_version: Optional maximum source_version filter.
     """
     root = Path(project_root)
     kb_dir = _resolve_kb_dir(root)
@@ -174,7 +270,7 @@ def handle_query(
         index = build_index(kb_dir)
         save_index(index, cache_path)
 
-    results = search(question, index, top_k=top_k)
+    results = search(question, index, top_k=top_k, min_version=min_version, max_version=max_version)
 
     return {
         "ok": True,
@@ -280,4 +376,97 @@ def handle_status(project_root: str) -> dict[str, Any]:
         "last_compile": last_compile,
         "synced": ing_status.get("synced", False),
         "lint_issues": lint_count,
+    }
+
+
+# ── Prototype scanner ──────────────────────────────────────────────────────────
+
+
+def _collect_kb_topics(kb_dir: Path) -> list[str]:
+    """Collect all tags and titles from existing KB articles as topic strings."""
+    topics: list[str] = []
+    from asd.compiler.ingest import _KB_SUBDIRS as kb_subdirs
+
+    for subdir_name in kb_subdirs:
+        subdir = kb_dir / subdir_name
+        if not subdir.is_dir():
+            continue
+        for article_path in sorted(subdir.glob("*.md")):
+            try:
+                content = article_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if content.startswith("---"):
+                end = content.find("---", 3)
+                if end != -1:
+                    fm_text = content[3:end]
+                    for line in fm_text.splitlines():
+                        line = line.strip()
+                        if line.startswith("title:"):
+                            topics.append(line.split(":", 1)[1].strip().strip('"'))
+                        elif line.startswith("tags:"):
+                            val = line.split(":", 1)[1].strip()
+                            if val.startswith("[") and val.endswith("]"):
+                                items = [
+                                    v.strip().strip('"').strip("'") for v in val[1:-1].split(",")
+                                ]
+                                topics.extend(i for i in items if i)
+    return list(set(topics))
+
+
+def handle_scan_prototypes(
+    project_root: str,
+    scan_dir: str | None = None,
+    output_file: str | None = None,
+) -> dict[str, Any]:
+    """Scan a directory for prototype projects and produce a shortlist.
+
+    Args:
+        project_root: Root directory of the project (usually CWD).
+        scan_dir: Directory to scan (defaults to project_root parent).
+        output_file: Path to write shortlist JSON (defaults to USER/shortlist.json).
+    """
+    root = Path(project_root)
+    kb_dir = _resolve_kb_dir(root)
+
+    target = Path(scan_dir) if scan_dir else root.parent
+    out = Path(output_file) if output_file else root / "USER" / "shortlist.json"
+
+    existing_topics = _collect_kb_topics(kb_dir)
+    result = scan_prototypes(root_dir=target, existing_kb_topics=existing_topics)
+    save_shortlist(result, out)
+
+    return {
+        "ok": True,
+        "scanned_at": result.scanned_at,
+        "root_directory": result.root_directory,
+        "prototypes_found": result.prototypes_found,
+        "shortlist_path": str(out),
+        "prototypes": result.prototypes,
+    }
+
+
+def handle_get_shortlist(
+    project_root: str,
+    shortlist_path: str | None = None,
+) -> dict[str, Any]:
+    """Load a previously generated prototype shortlist.
+
+    Args:
+        project_root: Root directory of the project (usually CWD).
+        shortlist_path: Path to the shortlist JSON file.
+    """
+    root = Path(project_root)
+    path = Path(shortlist_path) if shortlist_path else root / "USER" / "shortlist.json"
+
+    result = load_shortlist(path)
+    if result is None:
+        return {"ok": False, "error": f"No shortlist found at {path}"}
+
+    return {
+        "ok": True,
+        "scanned_at": result.scanned_at,
+        "root_directory": result.root_directory,
+        "prototypes_found": result.prototypes_found,
+        "prototypes": result.prototypes,
     }

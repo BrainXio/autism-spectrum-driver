@@ -16,9 +16,10 @@ logs, notes, references) and produces clean, versioned, interconnected knowledge
 
 ```
 src/asd/
-├── mcp_server.py        FastMCP server with 7 tool endpoints
+├── mcp_server.py        FastMCP server with 9 tool endpoints
+├── scanner.py           Prototype project scanner and shortlist generator
 ├── compiler/
-│   ├── ingest.py        Raw input → cleaned artifacts
+│   ├── ingest.py        Raw input → cleaned artifacts (with quality gates)
 │   └── compile.py       Daily logs → structured articles
 ├── storage/
 │   ├── artifacts.py     Pydantic data models
@@ -26,22 +27,25 @@ src/asd/
 ├── validation/
 │   └── consistency.py   Structural KB checks (6 checks)
 └── tools/
-    └── developer.py     Tool handler implementations
+    └── developer.py     Tool handler implementations (5 modes)
 ```
 
 ## Data Flow
 
 ```
-Raw Input (daily logs, notes)
+Raw Input (daily logs, notes, prototypes)
+        │
+        ▼
+    asd_scan_prototypes ──► USER/shortlist.json (ingestion planning)
         │
         ▼
     asd_compile ──► USER/kb/{concepts,connections,mechanisms,outcomes,references}/
         │
         ▼
-    asd_ingest  ──► .ingest_state.json (change tracking)
+    asd_ingest  ──► .ingest_state.json (change tracking + versioning + quality)
         │
         ▼
-    asd_query   ──► .index_cache.json (TF-IDF index)
+    asd_query   ──► .index_cache.json (TF-IDF index, version-filterable)
         │
         ▼
     asd_validate ──► lint report (6 structural checks)
@@ -60,8 +64,37 @@ tags: []
 sources: ["daily/YYYY-MM-DD.md"]
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
+source_version: 1
+ingest_date: YYYY-MM-DD
+historical_context: "Compiled from daily log YYYY-MM-DD.md"
 ---
 ```
+
+## Modes
+
+Five modes with distinct quality thresholds:
+
+| Mode | Min Words | Min Score | Required FM | Link Check |
+|------|-----------|-----------|-------------|------------|
+| developer | 50 | 0.2 | title | yes |
+| research | 30 | 0.1 | title | no |
+| review | 100 | 0.4 | title, type, tags | yes |
+| ops | 30 | 0.2 | title | yes |
+| personal | 10 | 0.0 | title | no |
+
+## MCP Tools (9)
+
+| Tool | Description |
+|------|-------------|
+| asd_set_mode | Switch active mode |
+| asd_get_mode | Get current mode and thresholds |
+| asd_ingest | Ingest markdown with quality gates |
+| asd_compile | Compile daily logs into articles |
+| asd_query | TF-IDF search with version filtering |
+| asd_validate | Run 6 structural checks |
+| asd_status | KB health report |
+| asd_scan_prototypes | Scan for prototype projects |
+| asd_get_shortlist | Load prototype ingestion shortlist |
 
 ## Key Design Decisions
 

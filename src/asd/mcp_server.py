@@ -1,8 +1,9 @@
 """ASD MCP Server — FastMCP stdio server for the systematizing memory layer.
 
-Exposes 7 MCP tools:
+Exposes 10 MCP tools:
     asd_set_mode, asd_get_mode, asd_ingest, asd_compile,
-    asd_query, asd_validate, asd_status
+    asd_query, asd_validate, asd_status,
+    asd_scan_prototypes, asd_get_shortlist, asd_get_rules
 
 Usage:
     uv run asd-mcp
@@ -16,11 +17,14 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
+from asd.rules import get_rules
 from asd.tools.developer import (
     handle_compile,
     handle_get_mode,
+    handle_get_shortlist,
     handle_ingest,
     handle_query,
+    handle_scan_prototypes,
     handle_set_mode,
     handle_status,
     handle_validate,
@@ -42,10 +46,17 @@ def _get_project_root() -> str:
 
 @mcp.tool
 def asd_set_mode(mode: str) -> dict:
-    """Switch the active mode. Currently only 'developer' is available.
+    """Switch the active mode. Valid modes: developer, research, review, ops, personal.
+
+    Each mode has different quality thresholds and validation rules.
+    - developer: Standard gates for active development
+    - research: Lenient gates for exploratory research
+    - review: Strict gates for formal review
+    - ops: Focused on operational content
+    - personal: Permissive gates for personal notes
 
     Args:
-        mode: The mode to activate. Valid values: 'developer'.
+        mode: The mode to activate.
     """
     return handle_set_mode(mode)
 
@@ -100,7 +111,12 @@ def asd_compile(all_logs: bool = False, file: str | None = None, dry_run: bool =
 
 
 @mcp.tool
-def asd_query(question: str, top_k: int = 5) -> dict:
+def asd_query(
+    question: str,
+    top_k: int = 5,
+    min_version: int | None = None,
+    max_version: int | None = None,
+) -> dict:
     """Search the knowledge base using TF-IDF relevance scoring.
 
     Builds or loads a cached search index from USER/kb/ and scores all
@@ -109,9 +125,17 @@ def asd_query(question: str, top_k: int = 5) -> dict:
     Args:
         question: Natural language search query.
         top_k: Maximum number of results to return (default: 5).
+        min_version: Optional minimum source_version filter.
+        max_version: Optional maximum source_version filter.
     """
     project_root = _get_project_root()
-    return handle_query(project_root, question=question, top_k=top_k)
+    return handle_query(
+        project_root,
+        question=question,
+        top_k=top_k,
+        min_version=min_version,
+        max_version=max_version,
+    )
 
 
 # ── Validation ─────────────────────────────────────────────────────────────────
@@ -141,6 +165,64 @@ def asd_status() -> dict:
     """
     project_root = _get_project_root()
     return handle_status(project_root)
+
+
+# ── Entry point ────────────────────────────────────────────────────────────────
+
+
+# ── Rules ──────────────────────────────────────────────────────────────────────
+
+
+@mcp.tool
+def asd_get_rules() -> dict:
+    """Return structured KB rules for the ASD knowledge base.
+
+    Returns a JSON object describing the KB schema, ingestion pipeline,
+    artifact format, mode definitions with quality thresholds, validation
+    checks, environment variables, and tool listing. Agents can call this
+    at startup to learn how the knowledge base works.
+    """
+    return get_rules()
+
+
+# ── Prototype scanner ──────────────────────────────────────────────────────────
+
+
+@mcp.tool
+def asd_scan_prototypes(
+    scan_dir: str | None = None,
+    output_file: str | None = None,
+) -> dict:
+    """Scan a directory for prototype projects and produce an ingestion shortlist.
+
+    Walks scan_dir (defaults to the parent of the project root) looking for
+    project directories. For each candidate, extracts domain, maturity,
+    tech_stack, last_modified, topic_overlap, and suggested priority.
+    Saves results to a shortlist JSON file.
+
+    Args:
+        scan_dir: Directory to scan for prototypes (default: project_root parent).
+        output_file: Path for shortlist JSON (default: USER/shortlist.json).
+    """
+    project_root = _get_project_root()
+    return handle_scan_prototypes(project_root, scan_dir=scan_dir, output_file=output_file)
+
+
+@mcp.tool
+def asd_get_shortlist(
+    shortlist_path: str | None = None,
+) -> dict:
+    """Load a previously generated prototype shortlist.
+
+    Returns the full shortlist with domain, maturity, priority, and rationale
+    for each prototype. Use this to review which prototypes Cerebro should
+    suggest for ingestion next.
+
+    Args:
+        shortlist_path: Path to the shortlist JSON (default: USER/shortlist.json).
+    """
+    project_root = _get_project_root()
+    return handle_get_shortlist(project_root, shortlist_path=shortlist_path)
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────

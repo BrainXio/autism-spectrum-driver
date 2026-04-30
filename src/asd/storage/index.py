@@ -284,6 +284,12 @@ def build_index(kb_dir: Path) -> dict[str, Any]:
         tokens = tokenize(searchable)
         tf = _term_freq(tokens)
 
+        src_version = fm.get("source_version", "1")
+        try:
+            src_version_int = int(str(src_version))
+        except (ValueError, TypeError):
+            src_version_int = 1
+
         articles.append(
             {
                 "path": rel,
@@ -292,6 +298,8 @@ def build_index(kb_dir: Path) -> dict[str, Any]:
                 "tags": tags,
                 "aliases": aliases,
                 "updated": str(fm.get("updated", "")),
+                "source_version": src_version_int,
+                "ingest_date": str(fm.get("ingest_date", "")),
                 "tf": tf,
                 "hash": _file_hash(article_path),
             },
@@ -315,6 +323,8 @@ def build_index(kb_dir: Path) -> dict[str, Any]:
                 "tags": a["tags"],
                 "aliases": a["aliases"],
                 "updated": a["updated"],
+                "source_version": a["source_version"],
+                "ingest_date": a["ingest_date"],
                 "tfidf": a["tfidf"],
                 "hash": a["hash"],
             }
@@ -330,8 +340,17 @@ def search(
     query: str,
     index: dict[str, Any],
     top_k: int = 5,
+    min_version: int | None = None,
+    max_version: int | None = None,
 ) -> list[dict[str, Any]]:
     """Score articles against a query and return the top_k most relevant.
+
+    Args:
+        query: Search query string.
+        index: Pre-built search index from build_index().
+        top_k: Maximum number of results.
+        min_version: Optional minimum source_version filter.
+        max_version: Optional maximum source_version filter.
 
     Returns list of dicts with: path, title, summary, score.
     Falls back to most-recently-updated articles when no article scores
@@ -350,6 +369,13 @@ def search(
 
     scored = []
     for article in index["articles"]:
+        # Apply version range filter
+        article_version = article.get("source_version", 1)
+        if min_version is not None and article_version < min_version:
+            continue
+        if max_version is not None and article_version > max_version:
+            continue
+
         article_tfidf = article.get("tfidf", {})
         if not article_tfidf:
             continue
@@ -360,6 +386,7 @@ def search(
                 "title": article["title"],
                 "summary": article.get("summary", ""),
                 "score": score,
+                "source_version": article_version,
             },
         )
 

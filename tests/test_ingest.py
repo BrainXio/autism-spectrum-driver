@@ -168,7 +168,7 @@ class TestIngest:
             concepts.mkdir(parents=True)
             article = concepts / "test.md"
             article.write_text(
-                '---\ntitle: "Test"\n---\n\nBody content.\n',
+                '---\ntitle: "Test"\n---\n\n' + "word " * 60 + "\n",
             )
 
             result = ingest(kb_dir=kb_dir)
@@ -184,7 +184,7 @@ class TestIngest:
             concepts = kb_dir / "concepts"
             concepts.mkdir(parents=True)
             article = concepts / "test.md"
-            article.write_text("---\ntitle: Test\n---\n\nBody.\n")
+            article.write_text("---\ntitle: Test\n---\n\n" + "word " * 60 + "\n")
 
             ingest(kb_dir=kb_dir)
             article.unlink()
@@ -201,7 +201,9 @@ class TestIngestStatus:
             kb_dir = Path(tmp)
             concepts = kb_dir / "concepts"
             concepts.mkdir(parents=True)
-            (concepts / "article.md").write_text("---\ntitle: A\n---\n\nBody.\n")
+            (concepts / "article.md").write_text(
+                "---\ntitle: A\n---\n\n" + "word " * 60 + "\n",
+            )
 
             status = ingest_status(kb_dir=kb_dir)
             assert status["disk_count"] == 1
@@ -212,7 +214,9 @@ class TestIngestStatus:
             kb_dir = Path(tmp)
             concepts = kb_dir / "concepts"
             concepts.mkdir(parents=True)
-            (concepts / "article.md").write_text("---\ntitle: A\n---\n\nBody.\n")
+            (concepts / "article.md").write_text(
+                "---\ntitle: A\n---\n\n" + "word " * 60 + "\n",
+            )
 
             ingest(kb_dir=kb_dir)
             status = ingest_status(kb_dir=kb_dir)

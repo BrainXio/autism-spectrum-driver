@@ -20,6 +20,12 @@ class KBArticle(BaseModel):
     updated: str = Field(description="ISO date YYYY-MM-DD")
     body: str = Field(description="Full markdown body content")
     hash: str = Field(default="", description="Content hash for change detection")
+    source_version: int = Field(default=1, description="Monotonic version, bumped on re-ingest")
+    ingest_date: str = Field(default="", description="ISO timestamp of last ingestion")
+    historical_context: str = Field(
+        default="",
+        description="Free-form note about why this version exists (architecture state, etc.)",
+    )
 
 
 class IngestResult(BaseModel):
@@ -66,4 +72,37 @@ class ValidationIssue(BaseModel):
     auto_fixable: bool = False
 
 
-Mode = Literal["developer"]
+class QualityThresholds(BaseModel):
+    """Configurable quality thresholds for ingestion gating."""
+
+    min_words: int = Field(default=50, description="Minimum word count before warning")
+    min_words_reject: int = Field(
+        default=10, description="Word count below which ingestion is rejected"
+    )
+    min_frontmatter_fields: int = Field(
+        default=2,
+        description="Minimum required frontmatter fields (title + one other)",
+    )
+    required_frontmatter: list[str] = Field(
+        default_factory=lambda: ["title"],
+        description="Frontmatter fields that must be present",
+    )
+    min_quality_score: float = Field(
+        default=0.2,
+        description="Articles scoring below this are warned",
+    )
+    reject_quality_score: float = Field(
+        default=0.0,
+        description="Articles scoring below this are rejected",
+    )
+    check_broken_links: bool = Field(
+        default=True,
+        description="Check for broken internal [[wikilinks]]",
+    )
+    max_broken_links: int = Field(
+        default=5,
+        description="Articles with more broken links than this are warned",
+    )
+
+
+Mode = Literal["developer", "research", "review", "ops", "personal"]

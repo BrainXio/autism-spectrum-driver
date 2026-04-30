@@ -48,6 +48,9 @@ tags: []
 sources: ["daily/YYYY-MM-DD.md"]
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
+source_version: 1
+ingest_date: YYYY-MM-DD
+historical_context: "Compiled from daily log YYYY-MM-DD.md"
 ---
 ```
 
@@ -58,15 +61,18 @@ Articles are organized by type into subdirectories under `USER/kb/`: `concepts/`
 
 The sole interface is `asd-mcp`, a FastMCP stdio server registered via `.mcp.json`.
 
-| Tool           | Purpose                                  | ASD Parallel                               |
-| -------------- | ---------------------------------------- | ------------------------------------------ |
-| `asd_set_mode` | Switch active operational mode           | Switching contexts deliberately            |
-| `asd_get_mode` | Return current mode                      | Knowing your frame of mind                 |
-| `asd_ingest`   | Raw markdown → processed artifacts       | Taking in information systematically       |
-| `asd_compile`  | Daily logs → structured articles         | Building understanding from raw experience |
-| `asd_query`    | TF-IDF semantic search                   | Retrieving the exact fact you need         |
-| `asd_validate` | Structural consistency checks (6 checks) | Checking your work for errors              |
-| `asd_status`   | KB health report                         | Self-monitoring: how is the system doing?  |
+| Tool                  | Purpose                                   | ASD Parallel                                  |
+| --------------------- | ----------------------------------------- | --------------------------------------------- |
+| `asd_set_mode`        | Switch active operational mode            | Switching contexts deliberately               |
+| `asd_get_mode`        | Return current mode and thresholds        | Knowing your frame of mind                    |
+| `asd_ingest`          | Raw markdown → processed artifacts        | Taking in information systematically          |
+| `asd_compile`         | Daily logs → structured articles          | Building understanding from raw experience    |
+| `asd_query`           | TF-IDF semantic search (version-filtered) | Retrieving the exact fact you need            |
+| `asd_validate`        | Structural consistency checks (6 checks)  | Checking your work for errors                 |
+| `asd_status`          | KB health report                          | Self-monitoring: how is the system doing?     |
+| `asd_scan_prototypes` | Scan for projects to ingest next          | Surveying the landscape before organizing     |
+| `asd_get_shortlist`   | Load prototype ingestion shortlist        | Reviewing the catalog before filing           |
+| `asd_get_rules`       | Return structured KB rules and schema     | Self-documentation: here is how I work        |
 
 ## Installation
 

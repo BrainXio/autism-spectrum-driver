@@ -119,6 +119,13 @@ def _build_frontmatter(article: dict[str, Any]) -> str:
         lines.append(f"sources: [{source_str}]")
     lines.append(f"created: {article.get('created', _today_iso())}")
     lines.append(f"updated: {article.get('updated', _today_iso())}")
+    lines.append(f"source_version: {article.get('source_version', 1)}")
+    ingest_date = article.get("ingest_date", "")
+    if ingest_date:
+        lines.append(f"ingest_date: {ingest_date}")
+    hist_ctx = article.get("historical_context", "")
+    if hist_ctx:
+        lines.append(f'historical_context: "{hist_ctx}"')
     lines.append("---")
     return "\n".join(lines)
 
@@ -285,6 +292,9 @@ def _compile_log_sections(
             "updated": today,
             "body": f"## Key Points\n\n{_extract_key_points(body)}\n\n## Details\n\n{body}",
             "slug": slug,
+            "source_version": 1,
+            "ingest_date": _today_iso(),
+            "historical_context": f"Compiled from daily log {log_name}",
         }
 
         fm = _build_frontmatter(article_data)

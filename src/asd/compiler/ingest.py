@@ -36,7 +36,9 @@ class IngestResult:
     skipped: int = 0
     deleted: int = 0
     errors: int = 0
-    details: list[dict[str, str]] = field(default_factory=list)
+    rejected: int = 0
+    warned: int = 0
+    details: list[dict[str, str | int | float]] = field(default_factory=list)
 
 
 # ── Frontmatter parsing ────────────────────────────────────────────────────────
@@ -140,6 +142,64 @@ def _today_iso() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
+# ── Quality gate ─────────────────────────────────────────────────────────────
+
+
+def _quality_gate(
+    frontmatter: dict[str, str],
+    body: str,
+    thresholds: dict[str, Any] | None = None,
+) -> tuple[bool, list[str]]:
+    """Check an article against quality thresholds.
+
+    Args:
+        frontmatter: Parsed frontmatter dict.
+        body: Article body text.
+        thresholds: Quality threshold config. Uses defaults if None.
+
+    Returns:
+        (accepted, warnings) — accepted=False means the article should be rejected.
+    """
+    t = thresholds or {}
+    warnings: list[str] = []
+
+    min_words = t.get("min_words", 50)
+    min_words_reject = t.get("min_words_reject", 10)
+    min_fm = t.get("min_frontmatter_fields", 2)
+    required_fm: list[str] = t.get("required_frontmatter", ["title"])
+    min_score = t.get("min_quality_score", 0.2)
+    reject_score = t.get("reject_quality_score", 0.0)
+
+    word_count = len(body.split())
+
+    # Rejection: too few words
+    if word_count < min_words_reject:
+        return False, [f"word count {word_count} below reject threshold {min_words_reject}"]
+
+    # Warning: below recommended word count
+    if word_count < min_words:
+        warnings.append(f"word count {word_count} below minimum {min_words}")
+
+    # Required frontmatter fields
+    missing_fm = [f for f in required_fm if f not in frontmatter]
+    if missing_fm:
+        return False, [f"missing required frontmatter: {', '.join(missing_fm)}"]
+
+    # Warning: few frontmatter fields
+    fm_count = len(frontmatter)
+    if fm_count < min_fm:
+        warnings.append(f"only {fm_count} frontmatter fields (minimum {min_fm})")
+
+    # Quality score gating
+    score = _score_article(frontmatter, body)
+    if score <= reject_score:
+        return False, [f"quality score {score} at or below reject threshold {reject_score}"]
+    if score < min_score:
+        warnings.append(f"quality score {score} below minimum {min_score}")
+
+    return True, warnings
+
+
 # ── Core ingestion ─────────────────────────────────────────────────────────────
 
 
@@ -148,15 +208,25 @@ def ingest(
     kb_dir: Path,
     force_all: bool = False,
     dry_run: bool = False,
+    quality_thresholds: dict[str, Any] | None = None,
 ) -> IngestResult:
     """Ingest raw markdown articles into cleaned KB artifacts.
 
     Scans the knowledge directory, parses frontmatter, computes scores,
-    and reports the state of all files. In dry-run mode, only reports
-    without making changes. Writes a state file for change tracking.
+    and reports the state of all files. Applies quality gates to reject
+    or warn on low-quality input.
+
+    In dry-run mode, only reports without making changes.
+    Writes a state file for change tracking.
 
     Uses mtime-first, hash-confirmed change detection for fast incremental runs.
     Detects orphaned files (deleted from disk) and reports them.
+
+    Args:
+        kb_dir: Knowledge base directory.
+        force_all: Re-ingest all files regardless of change detection.
+        dry_run: Report only, no writes.
+        quality_thresholds: Dict of threshold config for quality gating.
     """
     result = IngestResult()
     state_file = kb_dir / ".ingest_state.json"
@@ -225,12 +295,35 @@ def ingest(
             score = _score_article(frontmatter, body)
             is_new = rel_path not in prev_state
 
+            # Quality gate check
+            accepted, q_warnings = _quality_gate(frontmatter, body, quality_thresholds)
+            if not accepted:
+                result.rejected += 1
+                result.details.append(
+                    {
+                        "path": rel_path,
+                        "action": "reject",
+                        "reason": q_warnings[0] if q_warnings else "quality gate",
+                        "score": score,
+                    },
+                )
+                continue
+            if q_warnings:
+                result.warned += 1
+
+            # Version tracking
+            prev_version = prev_state.get(rel_path, {}).get("source_version", 0)
+            new_version = prev_version + 1 if not is_new else 1
+
             current_state[rel_path] = {
                 "title": title,
                 "hash": content_hash,
                 "mtime": file_mtime,
                 "score": score,
                 "ingested_at": _now_iso(),
+                "source_version": new_version,
+                "ingest_date": _now_iso(),
+                "quality_warnings": q_warnings,
             }
 
             action = "insert" if is_new else "update"
@@ -239,7 +332,13 @@ def ingest(
             else:
                 result.updated += 1
             result.details.append(
-                {"path": rel_path, "action": action, "score": str(score)},
+                {
+                    "path": rel_path,
+                    "action": action,
+                    "score": score,
+                    "source_version": new_version,
+                    "warnings": q_warnings,
+                },
             )
 
         except Exception as e:
