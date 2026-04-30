@@ -71,7 +71,7 @@ The sole interface is `asd-mcp`, a FastMCP stdio server registered via `.mcp.jso
 ## Installation
 
 ```bash
-git clone git@github.com:BrainXio/ASD.git
+git clone git@github.com:BrainXio/autism-spectrum-driver.git
 cd asd
 uv pip install -e .
 ```

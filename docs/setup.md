@@ -25,14 +25,14 @@ compiled.
       "command": "bash",
       "args": [
         "-c",
-        "uv --directory /home/mrrobot0985/work/projects/asd run asd-mcp"
+        "uv --directory /home/mrrobot0985/work/projects/autism-spectrum-driver run asd-mcp"
       ]
     },
     "adhd": {
       "command": "bash",
       "args": [
         "-c",
-        "ADHD_BUS_REPO_SLUG=projects uv --directory /home/mrrobot0985/work/projects/adhd run adhd-mcp"
+        "ADHD_BUS_REPO_SLUG=projects uv --directory /home/mrrobot0985/work/projects/attention-deficit-hyperactivity-driver run adhd-mcp"
       ]
     }
   }

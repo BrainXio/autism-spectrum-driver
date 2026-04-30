@@ -32,9 +32,9 @@ dependencies = [
 asd-mcp = "asd.mcp_server:main"
 
 [project.urls]
-Homepage = "https://github.com/BrainXio/ASD"
-Documentation = "https://github.com/BrainXio/ASD/tree/main/docs"
-Repository = "https://github.com/BrainXio/ASD"
+Homepage = "https://github.com/BrainXio/autism-spectrum-driver"
+Documentation = "https://github.com/BrainXio/autism-spectrum-driver/tree/main/docs"
+Repository = "https://github.com/BrainXio/autism-spectrum-driver"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/asd"]
