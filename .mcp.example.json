@@ -1,9 +1,8 @@
 {
   "mcpServers": {
-    "asd-mcp": {
+    "asd": {
       "command": "uv",
-      "args": ["run", "asd-mcp"],
-      "cwd": "${workspaceFolder}"
+      "args": ["run", "asd-mcp"]
     }
   }
 }
