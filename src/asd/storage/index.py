@@ -357,11 +357,11 @@ def search(
     above _MIN_SCORE.
     """
     if not query or not index.get("articles"):
-        return _fallback_recent(index, top_k)
+        return _fallback_recent(index, top_k, min_version=min_version, max_version=max_version)
 
     query_tokens = tokenize(query)
     if not query_tokens:
-        return _fallback_recent(index, top_k)
+        return _fallback_recent(index, top_k, min_version=min_version, max_version=max_version)
 
     query_tf = _term_freq(query_tokens)
     query_idf = index.get("idf", {})
@@ -394,14 +394,26 @@ def search(
     top = scored[:top_k]
 
     if not top or top[0]["score"] < _MIN_SCORE:
-        return _fallback_recent(index, top_k)
+        return _fallback_recent(index, top_k, min_version=min_version, max_version=max_version)
 
     return top
 
 
-def _fallback_recent(index: dict[str, Any], top_k: int) -> list[dict[str, Any]]:
-    """Return the most recently updated articles as a fallback."""
+def _fallback_recent(
+    index: dict[str, Any],
+    top_k: int,
+    min_version: int | None = None,
+    max_version: int | None = None,
+) -> list[dict[str, Any]]:
+    """Return the most recently updated articles as a fallback, with optional version filtering."""
     articles = index.get("articles", [])
+
+    # Apply version filters
+    if min_version is not None:
+        articles = [a for a in articles if a.get("source_version", 1) >= min_version]
+    if max_version is not None:
+        articles = [a for a in articles if a.get("source_version", 1) <= max_version]
+
     sorted_articles = sorted(articles, key=lambda a: a.get("updated", ""), reverse=True)
     return [
         {

@@ -19,6 +19,7 @@ from asd.validation.consistency import validate
 # ── Mode state ─────────────────────────────────────────────────────────────────
 
 _current_mode: str = "developer"
+_MODE_STATE_FILE = "USER/.mode_state.json"
 
 # Mode-specific quality threshold presets
 _MODE_DEFAULTS: dict[str, dict[str, Any]] = {
@@ -107,6 +108,33 @@ def get_mode_thresholds() -> dict[str, Any]:
     return dict(_MODE_DEFAULTS.get(_current_mode, _MODE_DEFAULTS["developer"]))
 
 
+def _load_mode() -> str:
+    """Restore the previously persisted mode, or return the default."""
+    try:
+        state = Path(_MODE_STATE_FILE)
+        if state.exists():
+            data = json.loads(state.read_text(encoding="utf-8"))
+            saved = data.get("mode", "developer")
+            if saved in _MODE_DEFAULTS:
+                return saved
+    except (OSError, json.JSONDecodeError):
+        pass
+    return "developer"
+
+
+def _save_mode(mode: str) -> None:
+    """Persist the current mode to disk."""
+    Path(_MODE_STATE_FILE).parent.mkdir(parents=True, exist_ok=True)
+    Path(_MODE_STATE_FILE).write_text(
+        json.dumps({"mode": mode}, indent=2),
+        encoding="utf-8",
+    )
+
+
+# Restore persisted mode on import
+_current_mode = _load_mode()
+
+
 # ── Mode handlers ──────────────────────────────────────────────────────────────
 
 
@@ -121,6 +149,7 @@ def handle_set_mode(mode: str) -> dict[str, Any]:
         }
     prev = _current_mode
     _current_mode = mode
+    _save_mode(mode)
     return {
         "ok": True,
         "previous": prev,
@@ -449,12 +478,16 @@ def handle_scan_prototypes(
 def handle_get_shortlist(
     project_root: str,
     shortlist_path: str | None = None,
+    domain: str | None = None,
+    min_priority: int | None = None,
 ) -> dict[str, Any]:
-    """Load a previously generated prototype shortlist.
+    """Load a previously generated prototype shortlist, with optional filtering.
 
     Args:
         project_root: Root directory of the project (usually CWD).
         shortlist_path: Path to the shortlist JSON file.
+        domain: Optional domain filter (e.g. 'ai-ml', 'neuroscience').
+        min_priority: Optional minimum priority filter (1-5, lower = higher priority).
     """
     root = Path(project_root)
     path = Path(shortlist_path) if shortlist_path else root / "USER" / "shortlist.json"
@@ -463,10 +496,18 @@ def handle_get_shortlist(
     if result is None:
         return {"ok": False, "error": f"No shortlist found at {path}"}
 
+    prototypes = result.prototypes
+
+    if domain is not None:
+        prototypes = [p for p in prototypes if p.get("domain") == domain]
+    if min_priority is not None:
+        prototypes = [p for p in prototypes if p.get("suggested_priority", 5) <= min_priority]
+
     return {
         "ok": True,
         "scanned_at": result.scanned_at,
         "root_directory": result.root_directory,
-        "prototypes_found": result.prototypes_found,
-        "prototypes": result.prototypes,
+        "prototypes_found": len(prototypes),
+        "total_in_shortlist": result.prototypes_found,
+        "prototypes": prototypes,
     }

@@ -211,8 +211,10 @@ def asd_scan_prototypes(
 @mcp.tool
 def asd_get_shortlist(
     shortlist_path: str | None = None,
+    domain: str | None = None,
+    min_priority: int | None = None,
 ) -> dict:
-    """Load a previously generated prototype shortlist.
+    """Load a previously generated prototype shortlist, with optional filtering.
 
     Returns the full shortlist with domain, maturity, priority, and rationale
     for each prototype. Use this to review which prototypes Cerebro should
@@ -220,9 +222,16 @@ def asd_get_shortlist(
 
     Args:
         shortlist_path: Path to the shortlist JSON (default: USER/shortlist.json).
+        domain: Optional domain filter (e.g. 'ai-ml', 'neuroscience').
+        min_priority: Optional minimum priority filter (1-5, lower = higher priority).
     """
     project_root = _get_project_root()
-    return handle_get_shortlist(project_root, shortlist_path=shortlist_path)
+    return handle_get_shortlist(
+        project_root,
+        shortlist_path=shortlist_path,
+        domain=domain,
+        min_priority=min_priority,
+    )
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────

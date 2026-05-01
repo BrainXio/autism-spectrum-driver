@@ -75,26 +75,17 @@ historical_context: "Compiled from daily log YYYY-MM-DD.md"
 Five modes with distinct quality thresholds:
 
 | Mode | Min Words | Min Score | Required FM | Link Check |
-|------|-----------|-----------|-------------|------------|
-| developer | 50 | 0.2 | title | yes |
-| research | 30 | 0.1 | title | no |
-| review | 100 | 0.4 | title, type, tags | yes |
-| ops | 30 | 0.2 | title | yes |
-| personal | 10 | 0.0 | title | no |
+|------|-----------|-----------|-------------|------------| | developer | 50 | 0.2 | title | yes | |
+research | 30 | 0.1 | title | no | | review | 100 | 0.4 | title, type, tags | yes | | ops | 30 | 0.2
+| title | yes | | personal | 10 | 0.0 | title | no |
 
 ## MCP Tools (9)
 
-| Tool | Description |
-|------|-------------|
-| asd_set_mode | Switch active mode |
-| asd_get_mode | Get current mode and thresholds |
-| asd_ingest | Ingest markdown with quality gates |
-| asd_compile | Compile daily logs into articles |
-| asd_query | TF-IDF search with version filtering |
-| asd_validate | Run 6 structural checks |
-| asd_status | KB health report |
-| asd_scan_prototypes | Scan for prototype projects |
-| asd_get_shortlist | Load prototype ingestion shortlist |
+| Tool | Description | |------|-------------| | asd_set_mode | Switch active mode | | asd_get_mode |
+Get current mode and thresholds | | asd_ingest | Ingest markdown with quality gates | | asd_compile
+| Compile daily logs into articles | | asd_query | TF-IDF search with version filtering | |
+asd_validate | Run 6 structural checks | | asd_status | KB health report | | asd_scan_prototypes |
+Scan for prototype projects | | asd_get_shortlist | Load prototype ingestion shortlist |
 
 ## Key Design Decisions
 

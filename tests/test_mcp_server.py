@@ -6,8 +6,10 @@ from pathlib import Path
 from asd.tools.developer import (
     handle_compile,
     handle_get_mode,
+    handle_get_shortlist,
     handle_ingest,
     handle_query,
+    handle_scan_prototypes,
     handle_set_mode,
     handle_status,
     handle_validate,
@@ -171,6 +173,198 @@ class TestStatusHandler:
             result = handle_status(project_root=tmp)
             assert result["ok"] is True
             assert result["disk_count"] == 1
+
+
+class TestScanPrototypesHandler:
+    """Prototype scanner MCP tool handler."""
+
+    def test_scan_empty_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = handle_scan_prototypes(project_root=tmp, scan_dir=tmp)
+            assert result["ok"] is True
+            assert result["prototypes_found"] == 0
+            assert "prototypes" in result
+
+    def test_scan_with_python_project(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            proj = root / "test-project"
+            proj.mkdir()
+            (proj / "pyproject.toml").write_text("")
+            (proj / "README.md").write_text("# Test Project")
+            (proj / "src").mkdir()
+            (proj / "src" / "main.py").write_text(
+                "import ollama\n# machine learning pipeline\n",
+            )
+
+            result = handle_scan_prototypes(project_root=tmp, scan_dir=tmp)
+            assert result["ok"] is True
+            assert result["prototypes_found"] >= 1
+            assert "shortlist_path" in result
+            assert Path(result["shortlist_path"]).exists()
+
+
+class TestGetShortlistHandler:
+    """Shortlist loading with filtering."""
+
+    def test_missing_shortlist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = handle_get_shortlist(project_root=tmp)
+            assert result["ok"] is False
+            assert "No shortlist found" in result["error"]
+
+    def test_loads_existing_shortlist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            shortlist_path = root / "USER" / "shortlist.json"
+
+            # First scan to create shortlist
+            proj = root / "ai-project"
+            proj.mkdir()
+            (proj / "pyproject.toml").write_text("")
+            (proj / "src").mkdir(parents=True)
+            (proj / "src" / "model.py").write_text(
+                "neural network deep learning inference " * 5,
+            )
+
+            handle_scan_prototypes(project_root=tmp, scan_dir=tmp)
+            assert shortlist_path.exists()
+
+            # Now load it
+            result = handle_get_shortlist(project_root=tmp)
+            assert result["ok"] is True
+            assert result["prototypes_found"] >= 1
+
+    def test_filter_by_domain(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            # Create a shortlist with multiple domain entries directly
+            shortlist_path = root / "USER" / "shortlist.json"
+            shortlist_path.parent.mkdir(parents=True)
+            import json
+
+            data = {
+                "scanned_at": "2026-05-01T00:00:00Z",
+                "root_directory": str(root),
+                "prototypes_found": 3,
+                "prototypes": [
+                    {
+                        "name": "ai-proj",
+                        "path": "/tmp/ai-proj",
+                        "domain": "ai-ml",
+                        "domain_confidence": 0.5,
+                        "maturity": "beta",
+                        "tech_stack": ["python"],
+                        "last_modified": "2026-05-01T00:00:00Z",
+                        "topic_overlap": 0.3,
+                        "file_count": 20,
+                        "summary": "AI project",
+                        "suggested_priority": 1,
+                        "priority_rationale": "strong ai-ml signal",
+                    },
+                    {
+                        "name": "neuro-proj",
+                        "path": "/tmp/neuro-proj",
+                        "domain": "neuroscience",
+                        "domain_confidence": 0.4,
+                        "maturity": "alpha",
+                        "tech_stack": ["python"],
+                        "last_modified": "2026-05-01T00:00:00Z",
+                        "topic_overlap": 0.2,
+                        "file_count": 10,
+                        "summary": "Neuro project",
+                        "suggested_priority": 2,
+                        "priority_rationale": "neuroscience signal",
+                    },
+                    {
+                        "name": "another-ai",
+                        "path": "/tmp/another-ai",
+                        "domain": "ai-ml",
+                        "domain_confidence": 0.6,
+                        "maturity": "production",
+                        "tech_stack": ["python", "docker"],
+                        "last_modified": "2026-05-01T00:00:00Z",
+                        "topic_overlap": 0.4,
+                        "file_count": 30,
+                        "summary": "Another AI project",
+                        "suggested_priority": 1,
+                        "priority_rationale": "strong signal",
+                    },
+                ],
+            }
+            shortlist_path.write_text(json.dumps(data, indent=2))
+
+            # Load with domain filter
+            result = handle_get_shortlist(project_root=tmp, domain="ai-ml")
+            assert result["ok"] is True
+            assert result["prototypes_found"] == 2
+            assert all(p["domain"] == "ai-ml" for p in result["prototypes"])
+
+    def test_filter_by_priority(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            shortlist_path = root / "USER" / "shortlist.json"
+            shortlist_path.parent.mkdir(parents=True)
+            import json
+
+            data = {
+                "scanned_at": "2026-05-01T00:00:00Z",
+                "root_directory": str(root),
+                "prototypes_found": 3,
+                "prototypes": [
+                    {
+                        "name": "high-pri",
+                        "path": "/tmp/high",
+                        "domain": "dev-tools",
+                        "domain_confidence": 0.3,
+                        "maturity": "production",
+                        "tech_stack": ["python"],
+                        "last_modified": "2026-05-01T00:00:00Z",
+                        "topic_overlap": 0.2,
+                        "file_count": 25,
+                        "summary": "High",
+                        "suggested_priority": 1,
+                        "priority_rationale": "production",
+                    },
+                    {
+                        "name": "mid-pri",
+                        "path": "/tmp/mid",
+                        "domain": "dev-tools",
+                        "domain_confidence": 0.2,
+                        "maturity": "alpha",
+                        "tech_stack": ["python"],
+                        "last_modified": "2026-05-01T00:00:00Z",
+                        "topic_overlap": 0.1,
+                        "file_count": 5,
+                        "summary": "Mid",
+                        "suggested_priority": 3,
+                        "priority_rationale": "alpha",
+                    },
+                    {
+                        "name": "low-pri",
+                        "path": "/tmp/low",
+                        "domain": "unknown",
+                        "domain_confidence": 0.0,
+                        "maturity": "prototype",
+                        "tech_stack": ["unknown"],
+                        "last_modified": "2026-05-01T00:00:00Z",
+                        "topic_overlap": 0.0,
+                        "file_count": 1,
+                        "summary": "Low",
+                        "suggested_priority": 5,
+                        "priority_rationale": "no strong signals",
+                    },
+                ],
+            }
+            shortlist_path.write_text(json.dumps(data, indent=2))
+
+            # min_priority=2: only include priority 1 and 2
+            result = handle_get_shortlist(project_root=tmp, min_priority=2)
+            assert result["ok"] is True
+            assert result["prototypes_found"] == 1
+            assert result["prototypes"][0]["name"] == "high-pri"
 
 
 class TestEndToEnd:

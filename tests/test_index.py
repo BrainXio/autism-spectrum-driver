@@ -147,6 +147,56 @@ class TestSearch:
             assert results[0]["title"] == "Python Guide"
             assert results[0]["score"] > 0
 
+    def test_version_field_in_index(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_dir = Path(tmp)
+            concepts = kb_dir / "concepts"
+            concepts.mkdir(parents=True)
+            (concepts / "article.md").write_text(
+                '---\ntitle: "Versioned Article"\nsource_version: 3\ningest_date: "2026-04-30"\n'
+                'updated: "2026-04-30"\n---\n\nBody with version info.\n',
+            )
+            index = build_index(kb_dir)
+            assert index["article_count"] == 1
+            article = index["articles"][0]
+            assert article["source_version"] == 3
+            assert article["ingest_date"] == "2026-04-30"
+
+    def test_returns_default_version_when_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_dir = Path(tmp)
+            concepts = kb_dir / "concepts"
+            concepts.mkdir(parents=True)
+            (concepts / "article.md").write_text(
+                '---\ntitle: "No Version"\nupdated: "2026-04-29"\n---\n\nContent.\n',
+            )
+            index = build_index(kb_dir)
+            article = index["articles"][0]
+            assert article["source_version"] == 1
+
+    def test_version_filtering(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_dir = Path(tmp)
+            concepts = kb_dir / "concepts"
+            concepts.mkdir(parents=True)
+            (concepts / "v1.md").write_text(
+                '---\ntitle: "V1"\nsource_version: 1\nupdated: "2026-04-29"\n---\n\nV1 content.\n',
+            )
+            (concepts / "v5.md").write_text(
+                '---\ntitle: "V5"\nsource_version: 5\nupdated: "2026-04-30"\n---\n\nV5 content.\n',
+            )
+
+            index = build_index(kb_dir)
+            # Filter: only articles with version >= 3
+            results = search("content", index, top_k=5, min_version=3)
+            assert len(results) == 1
+            assert results[0]["title"] == "V5"
+
+            # Filter: only articles with version <= 2
+            results = search("content", index, top_k=5, max_version=2)
+            assert len(results) == 1
+            assert results[0]["title"] == "V1"
+
     def test_fallback_when_no_match(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             kb_dir = Path(tmp)

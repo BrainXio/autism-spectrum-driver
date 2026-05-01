@@ -45,6 +45,35 @@ class TestKBArticle:
         assert len(article.sources) == 1
         assert article.hash == "abc123def456"
 
+    def test_versioning_fields(self) -> None:
+        article = KBArticle(
+            path="concepts/test.md",
+            title="Test Article",
+            article_type="concept",
+            created="2026-04-29",
+            updated="2026-04-29",
+            body="Body content.",
+            source_version=3,
+            ingest_date="2026-04-30T12:00:00Z",
+            historical_context="Re-ingested after schema change",
+        )
+        assert article.source_version == 3
+        assert article.ingest_date == "2026-04-30T12:00:00Z"
+        assert article.historical_context == "Re-ingested after schema change"
+
+    def test_versioning_defaults(self) -> None:
+        article = KBArticle(
+            path="concepts/test.md",
+            title="Test",
+            article_type="concept",
+            created="2026-04-29",
+            updated="2026-04-29",
+            body="Body.",
+        )
+        assert article.source_version == 1
+        assert article.ingest_date == ""
+        assert article.historical_context == ""
+
     def test_all_article_types(self) -> None:
         for atype in ("concept", "mechanism", "outcome", "reference", "connection"):
             article = KBArticle(

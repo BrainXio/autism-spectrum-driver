@@ -5,12 +5,14 @@ from pathlib import Path
 
 from asd.compiler.ingest import (
     _parse_list_field,
+    _quality_gate,
     _scan_kb_files,
     _score_article,
     _split_frontmatter,
     ingest,
     ingest_status,
 )
+from asd.tools.developer import get_mode_thresholds
 
 
 class TestFrontmatterParsing:
@@ -222,3 +224,241 @@ class TestIngestStatus:
             status = ingest_status(kb_dir=kb_dir)
             assert status["synced"] is True
             assert status["last_ingest"] is not None
+
+
+class TestQualityGate:
+    """Quality gate function — article acceptance and warnings."""
+
+    def test_accepts_good_article(self) -> None:
+        fm = {"title": "Test", "type": "concept", "tags": "[a, b]", "sources": "[s1]"}
+        body = "word " * 100 + " [[link1]] [[link2]]"
+        accepted, warnings = _quality_gate(fm, body)
+        assert accepted is True
+        assert warnings == []
+
+    def test_rejects_empty_body(self) -> None:
+        fm = {"title": "Test"}
+        accepted, warnings = _quality_gate(fm, "hi")
+        assert accepted is False
+        assert "word count" in warnings[0]
+
+    def test_rejects_missing_title(self) -> None:
+        fm: dict[str, str] = {}
+        body = "word " * 100
+        accepted, warnings = _quality_gate(fm, body)
+        assert accepted is False
+        assert "missing required frontmatter" in warnings[0]
+
+    def test_warns_low_word_count(self) -> None:
+        fm = {"title": "Test"}
+        # 15 words: above reject (10) but below min (50)
+        body = "word " * 15
+        accepted, warnings = _quality_gate(fm, body)
+        assert accepted is True
+        assert any("word count" in w for w in warnings)
+
+    def test_warns_low_frontmatter_fields(self) -> None:
+        fm = {"title": "Only Title"}
+        body = "word " * 60
+        accepted, warnings = _quality_gate(fm, body)
+        assert accepted is True
+        assert any("frontmatter fields" in w for w in warnings)
+
+    def test_warns_low_quality_score(self) -> None:
+        fm = {"title": "Test"}
+        body = "just a short body"
+        accepted, warnings = _quality_gate(fm, body)
+        # Short body = low score, should warn
+        assert any("quality score" in w or "word count" in w for w in warnings)
+
+    def test_rejects_zero_score_under_reject_threshold(self) -> None:
+        fm = {"title": "Test"}
+        # Enough words to pass word count gate but quality score of 0.2 hits reject threshold
+        body = "word " * 20
+        thresholds = {
+            "min_words": 50,
+            "min_words_reject": 5,
+            "min_frontmatter_fields": 2,
+            "required_frontmatter": ["title"],
+            "min_quality_score": 0.4,
+            "reject_quality_score": 0.2,
+        }
+        accepted, warnings = _quality_gate(fm, body, thresholds)
+        # quality score = 0.2 (title only), reject_quality_score = 0.2, so score <= 0.2 → rejected
+        assert accepted is False
+        assert "quality score" in warnings[0]
+
+    def test_custom_thresholds_allow_permissive(self) -> None:
+        fm: dict[str, str] = {}
+        body = "just a few words"
+        thresholds = {
+            "min_words": 50,
+            "min_words_reject": 1,
+            "min_frontmatter_fields": 0,
+            "required_frontmatter": [],
+            "min_quality_score": 0.0,
+            "reject_quality_score": -1.0,  # below zero so nothing is rejected
+        }
+        accepted, _ = _quality_gate(fm, body, thresholds)
+        assert accepted is True
+
+    def test_custom_thresholds_reject_strictly(self) -> None:
+        fm = {"title": "Only Title"}
+        body = "only thirty words here " * 2
+        thresholds = {
+            "min_words": 100,
+            "min_words_reject": 50,
+            "min_frontmatter_fields": 4,
+            "required_frontmatter": ["title", "type", "tags"],
+            "min_quality_score": 0.4,
+            "reject_quality_score": 0.1,
+        }
+        accepted, _ = _quality_gate(fm, body, thresholds)
+        assert accepted is False
+
+    def test_rejects_missing_required_fields_custom(self) -> None:
+        fm = {"title": "Test"}
+        body = "word " * 80
+        thresholds = {
+            "min_words": 50,
+            "min_words_reject": 10,
+            "min_frontmatter_fields": 2,
+            "required_frontmatter": ["title", "type", "tags"],
+            "min_quality_score": 0.2,
+            "reject_quality_score": 0.0,
+        }
+        accepted, warnings = _quality_gate(fm, body, thresholds)
+        assert accepted is False
+        assert "missing required frontmatter" in warnings[0]
+
+
+class TestModeThresholds:
+    """Per-mode quality threshold configuration."""
+
+    def test_developer_mode_thresholds(self) -> None:
+        t = get_mode_thresholds()
+        assert t["min_words"] == 50
+        assert t["required_frontmatter"] == ["title"]
+        assert t["reject_quality_score"] == 0.0
+
+    def test_research_mode_is_lenient(self) -> None:
+        from asd.tools.developer import handle_set_mode
+
+        handle_set_mode("research")
+        t = get_mode_thresholds()
+        assert t["min_words"] == 30
+        assert t["reject_quality_score"] == 0.0
+
+        # Restore default
+        handle_set_mode("developer")
+
+    def test_review_mode_is_strict(self) -> None:
+        from asd.tools.developer import handle_set_mode
+
+        handle_set_mode("review")
+        t = get_mode_thresholds()
+        assert t["min_words"] == 100
+        assert t["reject_quality_score"] == 0.1
+        assert t["required_frontmatter"] == ["title", "type", "tags"]
+
+        handle_set_mode("developer")
+
+    def test_personal_mode_is_permissive(self) -> None:
+        from asd.tools.developer import handle_set_mode
+
+        handle_set_mode("personal")
+        t = get_mode_thresholds()
+        assert t["min_words"] == 10
+        assert t["min_words_reject"] == 1
+        assert t["reject_quality_score"] == 0.0
+
+        handle_set_mode("developer")
+
+    def test_ops_mode_thresholds(self) -> None:
+        from asd.tools.developer import handle_set_mode
+
+        handle_set_mode("ops")
+        t = get_mode_thresholds()
+        assert t["min_words"] == 30
+        assert t["min_frontmatter_fields"] == 2
+        assert t["reject_quality_score"] == 0.0
+
+        handle_set_mode("developer")
+
+    def test_mode_persists_to_disk(self) -> None:
+        from asd.tools.developer import _MODE_STATE_FILE, _load_mode, handle_set_mode
+
+        handle_set_mode("review")
+        # Verify state file was written
+        assert Path(_MODE_STATE_FILE).exists()
+        saved = _load_mode()
+        assert saved == "review"
+
+        handle_set_mode("developer")
+
+
+class TestQualityGateIngest:
+    """Quality gate integration with full ingest pipeline."""
+
+    def test_rejected_articles_not_in_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_dir = Path(tmp)
+            concepts = kb_dir / "concepts"
+            concepts.mkdir(parents=True)
+            (concepts / "good.md").write_text(
+                "---\ntitle: Good\n---\n\n" + "word " * 60 + "\n",
+            )
+            (concepts / "bad.md").write_text("too short")  # no frontmatter, too few words
+
+            result = ingest(kb_dir=kb_dir)
+            assert result.inserted == 1
+            assert result.rejected == 1
+            assert any("bad.md" in str(d.get("path", "")) for d in result.details)
+
+    def test_quality_warnings_in_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_dir = Path(tmp)
+            concepts = kb_dir / "concepts"
+            concepts.mkdir(parents=True)
+            (concepts / "borderline.md").write_text(
+                "---\ntitle: Borderline\n---\n\nonly twenty words " * 2 + "\n",
+            )
+
+            result = ingest(kb_dir=kb_dir)
+            assert result.inserted == 1
+            assert result.warned == 1
+
+
+class TestVersioningIngest:
+    """Version tracking during ingestion."""
+
+    def test_source_version_in_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_dir = Path(tmp)
+            concepts = kb_dir / "concepts"
+            concepts.mkdir(parents=True)
+            (concepts / "article.md").write_text(
+                "---\ntitle: A\n---\n\n" + "word " * 60 + "\n",
+            )
+
+            result = ingest(kb_dir=kb_dir)
+            assert result.inserted == 1
+            detail = result.details[0]
+            assert detail["source_version"] == 1
+
+    def test_version_increments_on_update(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_dir = Path(tmp)
+            concepts = kb_dir / "concepts"
+            concepts.mkdir(parents=True)
+            article = concepts / "article.md"
+            article.write_text("---\ntitle: A\n---\n\n" + "word " * 60 + "\n")
+
+            first = ingest(kb_dir=kb_dir)
+            assert first.details[0]["source_version"] == 1
+
+            article.write_text("---\ntitle: A\ntags: [updated]\n---\n\n" + "word " * 60 + "\n")
+            # force_all bypasses mtime-based skip on fast filesystems
+            second = ingest(kb_dir=kb_dir, force_all=True)
+            assert second.updated == 1
+            assert second.details[0]["source_version"] == 2
