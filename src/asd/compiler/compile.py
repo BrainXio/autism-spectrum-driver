@@ -280,7 +280,6 @@ def _compile_log_sections(
 
         # Determine tags from content analysis
         tags = [article_type]
-        _extract_wikilinks(body)
 
         article_data: dict[str, Any] = {
             "title": heading,

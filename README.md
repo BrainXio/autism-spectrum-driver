@@ -106,18 +106,18 @@ Raw Markdown (daily logs, notes) → Ingestion → Structured KB Artifacts → T
 
 The sole interface is `asd-mcp`, a FastMCP stdio server registered via `.mcp.json`.
 
-| Tool | Purpose | ASD Parallel | | --------------------- |
-\----------------------------------------- | --------------------------------------------- | |
-`asd_set_mode` | Switch active operational mode | Switching contexts deliberately | | `asd_get_mode`
-| Return current mode and thresholds | Knowing your frame of mind | | `asd_ingest` | Raw markdown →
-processed artifacts | Taking in information systematically | | `asd_compile` | Daily logs →
-structured articles | Building understanding from raw experience | | `asd_query` | TF-IDF semantic
-search (version-filtered) | Retrieving the exact fact you need | | `asd_validate` | Structural
-consistency checks (6 checks) | Checking your work for errors | | `asd_status` | KB health report |
-Self-monitoring: how is the system doing? | | `asd_scan_prototypes` | Scan for projects to ingest
-next | Surveying the landscape before organizing | | `asd_get_shortlist` | Load prototype ingestion
-shortlist | Reviewing the catalog before filing | | `asd_get_rules` | Return structured KB rules and
-schema | Self-documentation: here is how I work |
+| Tool                  | Purpose                                   | ASD Parallel                               |
+| --------------------- | ----------------------------------------- | ------------------------------------------ |
+| `asd_set_mode`        | Switch active operational mode            | Switching contexts deliberately            |
+| `asd_get_mode`        | Return current mode and thresholds        | Knowing your frame of mind                 |
+| `asd_ingest`          | Raw markdown → processed artifacts        | Taking in information systematically       |
+| `asd_compile`         | Daily logs → structured articles          | Building understanding from raw experience |
+| `asd_query`           | TF-IDF semantic search (version-filtered) | Retrieving the exact fact you need         |
+| `asd_validate`        | Structural consistency checks (6 checks)  | Checking your work for errors              |
+| `asd_status`          | KB health report                          | Self-monitoring: how is the system doing?  |
+| `asd_scan_prototypes` | Scan for projects to ingest next          | Surveying the landscape before organizing  |
+| `asd_get_shortlist`   | Load prototype ingestion shortlist        | Reviewing the catalog before filing        |
+| `asd_get_rules`       | Return structured KB rules and schema     | Self-documentation: here is how I work     |
 
 ### Cross-Repo Integration
 
@@ -160,9 +160,10 @@ workflow, and code style. All development must happen in worktrees.
 
 ### Environment Variables
 
-| Variable | Purpose | | ------------------ | ------------------------------------------- | |
-`ASD_PROJECT_ROOT` | Absolute path to the project root | | `ASD_KB_DIR` | Override KB directory
-(default: `USER/kb/`) |
+| Variable           | Purpose                                     |
+| ------------------ | ------------------------------------------- |
+| `ASD_PROJECT_ROOT` | Absolute path to the project root           |
+| `ASD_KB_DIR`       | Override KB directory (default: `USER/kb/`) |
 
 ### Cross-Repo Knowledge Access
 
@@ -176,10 +177,11 @@ ASD_PROJECT_ROOT=/path/to/shared/project uv run asd-mcp
 
 ### Ecosystem
 
-| Package | Directory | Role | Type | |---------|-----------|------|------| | **ADHD** |
-`attention-deficit-hyperactivity-driver/` | Coordination nervous system | MCP Server | |
-**Another-Intelligence** | `another-intelligence/` | Cognitive core — PPAC loop | Agent / Host | |
-**OCD** | `obsessive-compulsive-driver/` | Discipline & enforcement — quality gates | MCP Server |
+| Package                  | Directory                                 | Role                                     | Type         |
+| ------------------------ | ----------------------------------------- | ---------------------------------------- | ------------ |
+| **ADHD**                 | `attention-deficit-hyperactivity-driver/` | Coordination nervous system              | MCP Server   |
+| **Another-Intelligence** | `another-intelligence/`                   | Cognitive core — PPAC loop               | Agent / Host |
+| **OCD**                  | `obsessive-compulsive-driver/`            | Discipline & enforcement — quality gates | MCP Server   |
 
 ### Roadmap
 
