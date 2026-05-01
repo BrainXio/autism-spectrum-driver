@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import tempfile
 from pathlib import Path
 
 from asd.scanner import (
+    PrototypeMetadata,
+    ScanResult,
     _compute_priority,
     _detect_domain,
     _detect_maturity,
@@ -15,8 +16,6 @@ from asd.scanner import (
     load_shortlist,
     save_shortlist,
     scan_prototypes,
-    PrototypeMetadata,
-    ScanResult,
 )
 
 

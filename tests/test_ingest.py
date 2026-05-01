@@ -389,7 +389,7 @@ class TestModeThresholds:
         handle_set_mode("developer")
 
     def test_mode_persists_to_disk(self) -> None:
-        from asd.tools.developer import _load_mode, _MODE_STATE_FILE, handle_set_mode
+        from asd.tools.developer import _MODE_STATE_FILE, _load_mode, handle_set_mode
 
         handle_set_mode("review")
         # Verify state file was written
