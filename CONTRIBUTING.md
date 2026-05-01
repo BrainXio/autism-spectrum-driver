@@ -4,14 +4,14 @@
 
 Use conventional prefix and a short kebab-case description:
 
-| Prefix     | When to use                              |
-| ---------- | ---------------------------------------- |
-| `feat/`    | New feature or enhancement               |
-| `fix/`     | Bug fix                                  |
-| `docs/`    | Documentation changes only               |
-| `chore/`   | Maintenance, tooling, CI, dependencies   |
-| `refactor/`| Code restructuring without feature change|
-| `test/`    | Test additions or improvements           |
+| Prefix      | When to use                               |
+| ----------- | ----------------------------------------- |
+| `feat/`     | New feature or enhancement                |
+| `fix/`      | Bug fix                                   |
+| `docs/`     | Documentation changes only                |
+| `chore/`    | Maintenance, tooling, CI, dependencies    |
+| `refactor/` | Code restructuring without feature change |
+| `test/`     | Test additions or improvements            |
 
 Examples: `feat/backlink-discovery`, `fix/ingest-empty-dir`, `docs/kb-schema-reference`.
 
@@ -28,6 +28,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`.
 Scopes: `ingest`, `compile`, `query`, `validate`, `kb`, `mcp`, `quality`, `docs`.
 
 Examples:
+
 - `feat(ingest): add mtime-fast-path for incremental ingestion`
 - `fix(query): handle empty index gracefully`
 - `docs(kb): add cross-reference discovery section`
@@ -37,7 +38,9 @@ Keep descriptions concise and imperative.
 ## PR Workflow
 
 1. Create a feature branch from `main`
+
 2. Implement with tests (150+ baseline, maintain or improve)
+
 3. Run the local CI gate before pushing:
 
    ```bash
@@ -48,7 +51,9 @@ Keep descriptions concise and imperative.
    ```
 
 4. Push and open a PR against `main`
+
 5. Post the PR URL to the ADHD bus for review
+
 6. Do not self-merge — wait for a supporter review
 
 ## Code Style
@@ -70,4 +75,5 @@ Keep descriptions concise and imperative.
 
 ## Getting Help
 
-Post questions to the ADHD bus with `type: question` and `topic: asd`. For schema or validation questions, check `docs/architecture.md` first.
+Post questions to the ADHD bus with `type: question` and `topic: asd`. For schema or validation
+questions, check `docs/architecture.md` first.
