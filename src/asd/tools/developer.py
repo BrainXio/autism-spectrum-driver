@@ -414,7 +414,7 @@ def handle_status(project_root: str) -> dict[str, Any]:
 def _collect_kb_topics(kb_dir: Path) -> list[str]:
     """Collect all tags and titles from existing KB articles as topic strings."""
     topics: list[str] = []
-    from asd.compiler.ingest import _KB_SUBDIRS as kb_subdirs
+    from asd.compiler._shared import _KB_SUBDIRS as kb_subdirs
 
     for subdir_name in kb_subdirs:
         subdir = kb_dir / subdir_name

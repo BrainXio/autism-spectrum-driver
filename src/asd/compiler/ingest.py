@@ -8,20 +8,21 @@ copies. Uses mtime-first change detection for fast incremental runs.
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import json
 import os
-import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+
+from asd.compiler._shared import (
+    _extract_wikilinks,
+    _file_hash_str,
+    _now_iso,
+    _scan_kb_files,
+    _split_frontmatter,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-# ── Subdirectory structure ─────────────────────────────────────────────────────
-
-_KB_SUBDIRS = ("concepts", "connections", "mechanisms", "outcomes", "references")
 
 # ── Result type ─────────────────────────────────────────────────────────────────
 
@@ -42,29 +43,6 @@ class IngestResult:
 
 
 # ── Frontmatter parsing ────────────────────────────────────────────────────────
-
-
-def _split_frontmatter(content: str) -> tuple[dict[str, str], str]:
-    """Split markdown content into (frontmatter_dict, body_text).
-
-    Returns ({}, content) if no frontmatter delimiters found.
-    """
-    if not content.startswith("---"):
-        return {}, content
-    end = content.find("---", 3)
-    if end == -1:
-        return {}, content
-    fm_text = content[3:end].strip()
-    body = content[end + 3 :].strip()
-
-    result: dict[str, str] = {}
-    for line in fm_text.splitlines():
-        line = line.strip()
-        if ":" not in line:
-            continue
-        key, _, val = line.partition(":")
-        result[key.strip()] = val.strip().strip('"').strip("'")
-    return result, body
 
 
 def _parse_list_field(value: str | None) -> list[str]:
@@ -101,45 +79,15 @@ def _score_article(frontmatter: dict[str, str], body: str) -> float:
         score += 0.2
     if len(body.split()) >= 100:
         score += 0.2
-    if re.findall(r"\[\[([^\]]+)\]\]", body):
+    if _extract_wikilinks(body):
         score += 0.2
     return round(score, 1)
 
 
-# ── Hashing ────────────────────────────────────────────────────────────────────
+# ── File hashing ───────────────────────────────────────────────────────────────
 
-
-def _file_hash(content: str) -> str:
-    """SHA-256 hash of content (first 16 hex chars)."""
-    return hashlib.sha256(content.encode()).hexdigest()[:16]
-
-
-# ── File scanning ──────────────────────────────────────────────────────────────
-
-
-def _scan_kb_files(knowledge_dir: Path) -> list[Path]:
-    """Scan knowledge directory for markdown article files."""
-    if not knowledge_dir.is_dir():
-        return []
-    files: list[Path] = []
-    for subdir_name in _KB_SUBDIRS:
-        subdir = knowledge_dir / subdir_name
-        if subdir.is_dir():
-            files.extend(sorted(subdir.glob("*.md")))
-    return files
-
-
-# ── Timestamp helpers ──────────────────────────────────────────────────────────
-
-
-def _now_iso() -> str:
-    """Current UTC time in ISO 8601 format."""
-    return datetime.now(UTC).isoformat(timespec="seconds")
-
-
-def _today_iso() -> str:
-    """Current UTC date in ISO 8601 format."""
-    return datetime.now(UTC).strftime("%Y-%m-%d")
+# _file_hash is from _shared; here we accept content strings
+_file_hash = _file_hash_str
 
 
 # ── Quality gate ─────────────────────────────────────────────────────────────

@@ -8,19 +8,24 @@ backlinks, and sparse articles. No LLM dependency.
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+
+from asd.compiler._shared import (
+    _KB_SUBDIRS,
+    _extract_wikilinks,
+    _file_hash,
+    _now_iso,
+    _scan_kb_files,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-_KB_SUBDIRS = ("concepts", "connections", "mechanisms", "outcomes", "references")
 _MIN_WORD_COUNT = 50
 
 # ── Result types ───────────────────────────────────────────────────────────────
@@ -55,23 +60,6 @@ class ValidationReport:
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-def _extract_wikilinks(text: str) -> list[str]:
-    """Extract [[wikilink]] targets from text."""
-    return re.findall(r"\[\[([^\]]+)\]\]", text)
-
-
-def _scan_kb_files(kb_dir: Path) -> list[Path]:
-    """Scan knowledge directory for markdown article files."""
-    if not kb_dir.is_dir():
-        return []
-    files: list[Path] = []
-    for subdir_name in _KB_SUBDIRS:
-        subdir = kb_dir / subdir_name
-        if subdir.is_dir():
-            files.extend(sorted(subdir.glob("*.md")))
-    return files
-
-
 def _article_exists(kb_dir: Path, link: str) -> bool:
     """Check if an article referenced by [[wikilink]] exists.
 
@@ -103,20 +91,6 @@ def _article_file(kb_dir: Path, link: str) -> Path | None:
         if target.exists():
             return target
     return None
-
-
-def _file_hash(path: Path) -> str:
-    """SHA-256 hash of file content (first 16 hex chars)."""
-    try:
-        content = path.read_text(encoding="utf-8")
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
-    except OSError:
-        return ""
-
-
-def _now_iso() -> str:
-    """Current UTC time in ISO 8601 format."""
-    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 # ── Check 1: Broken links ─────────────────────────────────────────────────────

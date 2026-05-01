@@ -10,15 +10,19 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+
+from asd.compiler._shared import (
+    _file_hash,
+    _now_iso,
+    _today_iso,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-_KB_SUBDIRS = ("concepts", "connections", "mechanisms", "outcomes", "references")
 _DEFAULT_INDEX_HEADER = (
     "# Knowledge Base Index\n\n"
     "| Article | Summary | Compiled From | Updated |\n"
@@ -44,25 +48,6 @@ class CompileResult:
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-def _now_iso() -> str:
-    """Current UTC time in ISO 8601 format."""
-    return datetime.now(UTC).isoformat(timespec="seconds")
-
-
-def _today_iso() -> str:
-    """Current date in ISO 8601 format."""
-    return datetime.now(UTC).strftime("%Y-%m-%d")
-
-
-def _file_hash(path: Path) -> str:
-    """SHA-256 hash of file content (first 16 hex chars)."""
-    try:
-        content = path.read_text(encoding="utf-8")
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
-    except OSError:
-        return ""
-
-
 def _slugify(text: str) -> str:
     """Convert a title string into a URL-safe slug."""
     slug = text.lower().strip()
@@ -71,31 +56,7 @@ def _slugify(text: str) -> str:
     return slug.strip("-")
 
 
-def _extract_wikilinks(text: str) -> list[str]:
-    """Extract [[wikilink]] targets from markdown text."""
-    return re.findall(r"\[\[([^\]]+)\]\]", text)
-
-
 # ── Frontmatter ────────────────────────────────────────────────────────────────
-
-
-def _split_frontmatter(content: str) -> tuple[dict[str, str], str]:
-    """Split markdown content into (frontmatter_dict, body_text)."""
-    if not content.startswith("---"):
-        return {}, content
-    end = content.find("---", 3)
-    if end == -1:
-        return {}, content
-    fm_text = content[3:end].strip()
-    body = content[end + 3 :].strip()
-    result: dict[str, str] = {}
-    for line in fm_text.splitlines():
-        line = line.strip()
-        if ":" not in line:
-            continue
-        key, _, val = line.partition(":")
-        result[key.strip()] = val.strip().strip('"').strip("'")
-    return result, body
 
 
 def _build_frontmatter(article: dict[str, Any]) -> str:

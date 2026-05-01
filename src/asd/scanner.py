@@ -14,6 +14,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from asd.compiler._shared import _now_iso
+
 # ── Domain keywords ─────────────────────────────────────────────────────────────
 
 _DOMAIN_KEYWORDS: dict[str, list[str]] = {
@@ -236,10 +238,6 @@ def _last_modified(root: Path) -> str:
         dt = datetime.fromtimestamp(latest, tz=UTC)
         return dt.isoformat(timespec="seconds")
     return _now_iso()
-
-
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _compute_topic_overlap(root: Path, existing_kb_topics: list[str]) -> float:
