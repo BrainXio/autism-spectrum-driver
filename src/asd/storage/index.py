@@ -7,12 +7,17 @@ files under USER/kb/.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+
+from asd.compiler._shared import (
+    _file_hash,
+    _scan_kb_files,
+    _split_frontmatter,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -138,7 +143,6 @@ _STOP_WORDS: frozenset[str] = frozenset(
 )
 
 _MIN_SCORE = 0.1
-_SEARCHABLE_SUBDIRS = ("concepts", "connections", "mechanisms", "outcomes", "references")
 
 
 # ── Tokenization ───────────────────────────────────────────────────────────────
@@ -198,21 +202,12 @@ def _cosine_similarity(vec_a: dict[str, float], vec_b: dict[str, float]) -> floa
 
 
 def _parse_frontmatter(content: str) -> dict[str, Any]:
-    """Extract YAML frontmatter fields from markdown content."""
-    if not content.startswith("---"):
+    """Extract YAML frontmatter fields from markdown content, with list parsing."""
+    fm, _ = _split_frontmatter(content)
+    if not fm:
         return {}
-    end = content.find("---", 3)
-    if end == -1:
-        return {}
-    fm = content[3:end]
     result: dict[str, Any] = {}
-    for line in fm.strip().splitlines():
-        line = line.strip()
-        if ":" not in line:
-            continue
-        key, _, val = line.partition(":")
-        key = key.strip()
-        val = val.strip().strip('"').strip("'")
+    for key, val in fm.items():
         if val.startswith("[") and val.endswith("]"):
             items = [v.strip().strip('"').strip("'") for v in val[1:-1].split(",")]
             result[key] = [i for i in items if i]
@@ -221,33 +216,7 @@ def _parse_frontmatter(content: str) -> dict[str, Any]:
     return result
 
 
-def _extract_wikilinks(text: str) -> list[str]:
-    """Extract [[wikilink]] targets from text."""
-    return re.findall(r"\[\[([^\]]+)\]\]", text)
-
-
-def _file_hash(path: Path) -> str:
-    """SHA-256 hex digest of file content (first 16 chars)."""
-    try:
-        content = path.read_text(encoding="utf-8")
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
-    except OSError:
-        return ""
-
-
 # ── Index building ─────────────────────────────────────────────────────────────
-
-
-def _scan_kb_files(kb_dir: Path) -> list[Path]:
-    """Scan knowledge base directory for markdown article files."""
-    if not kb_dir.is_dir():
-        return []
-    files: list[Path] = []
-    for subdir_name in _SEARCHABLE_SUBDIRS:
-        subdir = kb_dir / subdir_name
-        if subdir.is_dir():
-            files.extend(sorted(subdir.glob("*.md")))
-    return files
 
 
 def build_index(kb_dir: Path) -> dict[str, Any]:
